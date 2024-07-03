@@ -231,7 +231,7 @@ class Agent():
                             # update assistant if parameters are different
                             if not self._check_parameters(self.assistant.model_dump()):
                                 print("Updating agent... " + self.name)
-                                self._update_assistant()
+                                # self._update_assistant()
 
                             if self.assistant.tool_resources:
                                 self.tool_resources = self.assistant.tool_resources.model_dump()
