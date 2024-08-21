@@ -242,3 +242,13 @@ Agency Swarm is open-source and licensed under [MIT](https://opensource.org/lice
 ## Need Help?
 
 If you need help creating custom agent swarms for your business, check out our [Agents-as-a-Service](https://agents.vrsen.ai/) subscription, or schedule a consultation with me at https://calendly.com/vrsen/ai-project-consultation
+
+## Pull from upstream
+
+`git fetch upstream`
+
+`git checkout main`
+
+`git rebase upstream/main`
+
+`git push -f origin main`
