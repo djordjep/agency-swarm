@@ -45,6 +45,47 @@ class ThreadsCallbacks(TypedDict):
     save: Callable[[Dict], Any]
 
 
+def extract_wait_time(message):
+    """
+    Extract the wait time from the exception message.
+    Supports formats like 234ms, 4s, 20s, 1m.
+    """
+    match = re.search(r'Please try again in (\d+)(ms|s|m)', message)
+    if match:
+        wait_time = int(match.group(1))
+        unit = match.group(2)
+        
+        if unit == 'ms':
+            return wait_time / 1000  # convert ms to seconds
+        elif unit == 's':
+            return wait_time
+        elif unit == 'm':
+            return wait_time * 60  # convert minutes to seconds
+    return None
+
+def make_api_call_with_retry(api_call_func, retries=5, **kwargs):
+    """
+    Make the API call with retry mechanism if rate limit exception occurs.
+    """
+    for attempt in range(retries):
+        try:
+            return api_call_func(**kwargs)
+        except Exception as e:
+            message = str(e)
+            if "Please try again in" in message:
+                wait_time = extract_wait_time(message)
+                if wait_time:
+                    print(f"Rate limit reached. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    print("Could not parse wait time from message. Exiting.")
+                    break
+            else:
+                # If the exception is not related to rate limiting, re-raise it
+                raise
+    else:
+        print("Exceeded maximum retry attempts. Exiting.")
+
 class Agency:
     ThreadType = Thread
     send_message_tool_description = """Use this tool to facilitate direct, synchronous communication between specialized agents within your agency. When you send a message using this tool, you receive a response exclusively from the designated recipient agent. To continue the dialogue, invoke this tool again with the desired recipient agent and your follow-up message. Remember, communication here is synchronous; the recipient agent won't perform any tasks post-response. You are responsible for relaying the recipient agent's responses back to the user, as the user does not have direct access to these replies. Keep engaging with the tool for continuous interaction until the task is fully resolved. Do not send more than 1 message at a time."""
@@ -155,25 +196,28 @@ class Agency:
         if verbose and yield_messages:
             raise Exception("Verbose mode is not compatible with yield_messages=True")
         
-        res = self.main_thread.get_completion(message=message,
-                                               message_files=message_files,
-                                               attachments=attachments,
-                                               recipient_agent=recipient_agent,
-                                               additional_instructions=additional_instructions,
-                                               tool_choice=tool_choice,
-                                               yield_messages=yield_messages or verbose,
-                                               response_format=response_format)
-        
-        if not yield_messages or verbose:
-            while True:
-                try:
-                    message = next(res)
-                    if verbose:
-                        message.cprint()
-                except StopIteration as e:
-                    return e.value
 
-        return res
+        def api_call_func():
+            res = self.main_thread.get_completion(message=message,
+                                                message_files=message_files,
+                                                attachments=attachments,
+                                                recipient_agent=recipient_agent,
+                                                additional_instructions=additional_instructions,
+                                                tool_choice=tool_choice,
+                                                yield_messages=yield_messages or verbose,
+                                                response_format=response_format)
+            
+            if not yield_messages or verbose:
+                while True:
+                    try:
+                        message = next(res)
+                        if verbose:
+                            message.cprint()
+                    except StopIteration as e:
+                        return e.value
+
+
+        return make_api_call_with_retry(api_call_func)
 
 
     def get_completion_stream(self,
