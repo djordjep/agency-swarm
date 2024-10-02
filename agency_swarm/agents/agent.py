@@ -213,7 +213,7 @@ class Agent():
 
             # # update assistant if parameters are different
             # if not self._check_parameters(self.assistant.model_dump()):
-            #     self._update_assistant()
+            self._update_assistant()
 
             return self
 
@@ -236,7 +236,7 @@ class Agent():
                             if self.assistant.tool_resources:
                                 self.tool_resources = self.assistant.tool_resources.model_dump()
 
-                            # self._update_settings()
+                            self._update_settings()
                             return self
                         except NotFoundError:
                             continue
